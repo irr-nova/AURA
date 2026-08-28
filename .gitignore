@@ -1,5 +1,17 @@
+# Python generated files
+__pycache__/
+*.py[cod]
+*.pyc
+
+# Virtual environments
 .venv/
 .venv-1/
-__pycache__/
+
+# Environment variables
+.env
+
+# Test cache
 .pytest_cache/
-*.pyc
+
+# Generated audio
+data/*.mp3
