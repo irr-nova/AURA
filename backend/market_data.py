@@ -3,11 +3,11 @@ from backend.contracts import MarketState
 
 class MarketDataProvider:
     """
-    Provides validated market data to the rest of AURA.
+    Provides market data to the rest of AURA.
 
-    The simulator is currently the data source. This abstraction allows
-    a real market-data API to be connected later without changing the
-    Agent or Risk modules.
+    The simulator is currently the data source.
+    A real market-data API can be connected later without
+    changing the Agent or Risk modules.
     """
 
     def __init__(self, simulator):
