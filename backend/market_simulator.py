@@ -1,137 +1,114 @@
-import random
+from dataclasses import dataclass
 from datetime import datetime, timezone
+import random
 
-from backend.contracts import MarketState
+
+@dataclass
+class MarketState:
+    asset: str
+    price: float
+    volume: float
+    liquidity: float
+    volatility: float
+    sentiment: float
+    news_signal: float
+    market_regime: str
+    timestamp: datetime
+    data_age_seconds: float = 0.0
 
 
 class MarketSimulator:
     """
-    Simulates a continuously changing financial market.
+    Simple deterministic market simulator for AURA.
 
-    This is used for the AURA prototype instead of a live brokerage/
-    market-data connection.
+    Supports:
+        AAPL
+        TSLA
+        NVDA
+
+    Every supported asset is handled identically.
     """
 
+    BASE_PRICES = {
+        "AAPL": 225.00,
+        "TSLA": 181.79,
+        "NVDA": 142.95,
+    }
+
     def __init__(self):
-        self.assets = {
-            "AAPL": {
-                "price": 215.40,
-                "volume": 1_250_000,
-                "liquidity": 0.87,
-                "volatility": 0.24,
-                "sentiment": 0.65,
-                "news_signal": 0.72,
-            },
-            "TSLA": {
-                "price": 182.40,
-                "volume": 980_000,
-                "liquidity": 0.78,
-                "volatility": 0.38,
-                "sentiment": 0.20,
-                "news_signal": 0.15,
-            },
-            "NVDA": {
-                "price": 141.20,
-                "volume": 1_800_000,
-                "liquidity": 0.91,
-                "volatility": 0.29,
-                "sentiment": 0.72,
-                "news_signal": 0.68,
-            },
-        }
+        self._prices = dict(self.BASE_PRICES)
 
-    def _calculate_regime(self, volatility, sentiment):
-        """Determine the current market regime."""
+    def get_market_state(self, asset: str) -> MarketState:
+        """
+        Return a simulated MarketState for the requested asset.
+        """
 
-        if volatility >= 0.40:
-            return "HIGH_VOLATILITY"
+        if not isinstance(asset, str):
+            raise ValueError("Asset must be a string.")
 
-        if sentiment >= 0.30:
-            return "BULL"
+        asset = asset.strip().upper()
 
-        if sentiment <= -0.30:
-            return "BEAR"
+        if asset not in self._prices:
+            raise ValueError(
+                f"Unsupported asset: {asset}. "
+                f"Supported assets: {', '.join(self._prices.keys())}"
+            )
 
-        return "SIDEWAYS"
+        # Small random price movement.
+        base_price = self._prices[asset]
 
-    def _update_asset(self, asset):
-        """Apply a small random market movement to an asset."""
+        movement = random.uniform(-0.015, 0.015)
+        price = base_price * (1.0 + movement)
 
-        data = self.assets[asset]
+        # Keep the new price for the next simulation cycle.
+        self._prices[asset] = price
 
-        # Price movement influenced by sentiment and random market noise.
-        price_change = random.gauss(
-            data["sentiment"] * 0.001,
-            data["volatility"] * 0.005
+        volume = random.uniform(
+            1_000_000,
+            10_000_000,
         )
 
-        data["price"] *= (1 + price_change)
-
-        # Keep price realistic for the simulation.
-        data["price"] = max(data["price"], 1.0)
-
-        # Volume changes slightly every tick.
-        volume_change = random.uniform(0.95, 1.05)
-        data["volume"] *= volume_change
-
-        # Liquidity changes gradually.
-        liquidity_change = random.uniform(-0.02, 0.02)
-        data["liquidity"] += liquidity_change
-        data["liquidity"] = max(0.05, min(data["liquidity"], 1.0))
-
-        # Volatility changes gradually.
-        volatility_change = random.uniform(-0.02, 0.02)
-        data["volatility"] += volatility_change
-        data["volatility"] = max(0.05, min(data["volatility"], 0.80))
-
-        # Sentiment changes gradually.
-        sentiment_change = random.uniform(-0.08, 0.08)
-        data["sentiment"] += sentiment_change
-        data["sentiment"] = max(-1.0, min(data["sentiment"], 1.0))
-
-        # News signal follows sentiment with some randomness.
-        data["news_signal"] = (
-            data["sentiment"] + random.uniform(-0.15, 0.15)
+        liquidity = random.uniform(
+            0.70,
+            0.99,
         )
-        data["news_signal"] = max(
+
+        volatility = random.uniform(
+            0.10,
+            0.40,
+        )
+
+        sentiment = random.uniform(
             -1.0,
-            min(data["news_signal"], 1.0)
+            1.0,
         )
 
-    def get_market_state(self, asset):
-        """
-        Generate the latest MarketState for one asset.
-        """
+        news_signal = random.uniform(
+            -1.0,
+            1.0,
+        )
 
-        if asset not in self.assets:
-            raise ValueError(f"Unknown asset: {asset}")
+        # Determine simulated market regime.
+        if volatility >= 0.30:
+            market_regime = "HIGH_VOLATILITY"
+        elif sentiment >= 0.30:
+            market_regime = "BULLISH"
+        elif sentiment <= -0.30:
+            market_regime = "BEARISH"
+        else:
+            market_regime = "NEUTRAL"
 
-        self._update_asset(asset)
-
-        data = self.assets[asset]
+        timestamp = datetime.now(timezone.utc)
 
         return MarketState(
             asset=asset,
-            price=round(data["price"], 2),
-            volume=round(data["volume"], 2),
-            liquidity=round(data["liquidity"], 4),
-            volatility=round(data["volatility"], 4),
-            sentiment=round(data["sentiment"], 4),
-            news_signal=round(data["news_signal"], 4),
-            market_regime=self._calculate_regime(
-                data["volatility"],
-                data["sentiment"]
-            ),
-            timestamp=datetime.now(timezone.utc),
+            price=round(price, 2),
+            volume=round(volume, 0),
+            liquidity=round(liquidity, 4),
+            volatility=round(volatility, 4),
+            sentiment=round(sentiment, 4),
+            news_signal=round(news_signal, 4),
+            market_regime=market_regime,
+            timestamp=timestamp,
             data_age_seconds=0.0,
         )
-
-    def get_all_market_states(self):
-        """
-        Generate the latest MarketState for every simulated asset.
-        """
-
-        return [
-            self.get_market_state(asset)
-            for asset in self.assets
-        ]

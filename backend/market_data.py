@@ -1,20 +1,25 @@
-from backend.contracts import MarketState
+from backend.market_simulator import MarketSimulator
 
 
 class MarketDataProvider:
     """
-    Provides market data to the rest of AURA.
+    Provides market data to the AURA application.
 
-    The simulator is currently the data source.
-    A real market-data API can be connected later without
-    changing the Agent or Risk modules.
+    The provider delegates market-state generation to the
+    configured market simulator.
     """
 
-    def __init__(self, simulator):
-        self.simulator = simulator
+    def __init__(self, simulator=None):
+        self.simulator = simulator or MarketSimulator()
 
-    def get_market_state(self, asset: str) -> MarketState:
+    def get_market_state(self, asset: str):
+        """
+        Get market state for any supported asset.
+        """
+
+        if not asset:
+            raise ValueError("Asset cannot be empty.")
+
+        asset = str(asset).strip().upper()
+
         return self.simulator.get_market_state(asset)
-
-    def get_all_market_states(self) -> list[MarketState]:
-        return self.simulator.get_all_market_states()

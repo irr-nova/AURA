@@ -1,8 +1,9 @@
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import Dict, List
 
 
-@dataclass(frozen=True)
+@dataclass
 class MarketState:
     asset: str
     price: float
@@ -13,55 +14,46 @@ class MarketState:
     news_signal: float
     market_regime: str
     timestamp: datetime
-    data_age_seconds: float
+
+    @property
+    def data_age_seconds(self) -> float:
+        now = datetime.now(timezone.utc)
+
+        timestamp = self.timestamp
+
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
+
+        return max(
+            0.0,
+            (now - timestamp).total_seconds()
+        )
 
 
-@dataclass(frozen=True)
-class PortfolioState:
-    available_cash: float
-    positions: dict[str, float]
-    total_value: float
-    current_exposure: float
-    pnl: float
-    drawdown: float
-    timestamp: datetime
-
-
-@dataclass(frozen=True)
+@dataclass
 class AgentDecision:
     action: str
-    asset: str
-    requested_quantity: float
-    requested_amount: float
     confidence: float
     expected_return: float
+    requested_quantity: float
     reason: str
-    timestamp: datetime
 
 
-@dataclass(frozen=True)
+@dataclass
 class RiskDecision:
     status: str
+    risk_score: float
     approved_quantity: float
     approved_amount: float
-    risk_score: float
-    risk_factors: list[str]
-    constraints_triggered: list[str]
-    timestamp: datetime
+    risk_factors: List[str] = field(
+        default_factory=list
+    )
+    constraints_triggered: List[str] = field(
+        default_factory=list
+    )
 
 
-@dataclass(frozen=True)
-class RiskConstraints:
-    max_portfolio_exposure: float = 0.70
-    max_single_asset_exposure: float = 0.30
-    max_position_allocation: float = 0.25
-    max_drawdown: float = 0.15
-    max_volatility: float = 0.50
-    min_liquidity: float = 0.30
-    transaction_cost_rate: float = 0.001
-
-
-@dataclass(frozen=True)
+@dataclass
 class ApprovedOrder:
     asset: str
     action: str
@@ -70,33 +62,33 @@ class ApprovedOrder:
     timestamp: datetime
 
 
-@dataclass(frozen=True)
+@dataclass
 class ExecutionResult:
     status: str
     asset: str
     action: str
-    requested_quantity: float
     executed_quantity: float
-    requested_price: float
     executed_price: float
-    transaction_cost: float
     slippage: float
+    transaction_cost: float
     timestamp: datetime
-    reason: str
 
-@dataclass(frozen=True)
-class AdaptationFeedback:
-    execution_outcome: str
-    requested_quantity: float
-    executed_quantity: float
-    requested_price: float
-    executed_price: float
-    transaction_cost: float
-    slippage: float
-    resulting_portfolio_value: float
+
+@dataclass
+class PortfolioState:
+    available_cash: float
+    positions: Dict[str, float]
+    total_value: float
+    current_exposure: float
     pnl: float
     drawdown: float
-    current_exposure: float
-    resulting_position: float
-    risk_outcome: str
     timestamp: datetime
+
+
+@dataclass
+class AdaptationFeedback:
+    execution_outcome: str
+    risk_outcome: str
+    resulting_position: float
+    pnl: float
+    drawdown: float

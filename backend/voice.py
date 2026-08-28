@@ -1,95 +1,92 @@
 import os
 from pathlib import Path
 
-from elevenlabs.client import ElevenLabs
-
-from backend.contracts import AgentDecision
-
 
 class VoiceExplainer:
-    """Converts an AgentDecision explanation into spoken audio using ElevenLabs."""
+    """
+    Optional ElevenLabs voice module.
 
-    def __init__(
-        self,
-        voice_id: str | None = None,
-        model_id: str = "eleven_multilingual_v2",
-    ):
-        api_key = os.getenv("ELEVENLABS_API_KEY")
+    This module is intentionally isolated from the rest of AURA.
+    If ElevenLabs is unavailable or incorrectly configured,
+    the main application can continue operating.
+    """
 
-        if not api_key:
+    def __init__(self):
+        self.api_key = os.getenv("ELEVENLABS_API_KEY")
+        self.voice_id = os.getenv("ELEVENLABS_VOICE_ID")
+
+        if not self.api_key:
             raise RuntimeError(
-                "ELEVENLABS_API_KEY environment variable is not configured."
+                "ELEVENLABS_API_KEY is not configured."
             )
-
-        self.client = ElevenLabs(api_key=api_key)
-
-        # Can be overridden with ELEVENLABS_VOICE_ID.
-        self.voice_id = voice_id or os.getenv("ELEVENLABS_VOICE_ID")
 
         if not self.voice_id:
             raise RuntimeError(
-                "ELEVENLABS_VOICE_ID environment variable is not configured."
+                "ELEVENLABS_VOICE_ID is not configured."
             )
 
-        self.model_id = model_id
+        try:
+            from elevenlabs.client import ElevenLabs
+        except Exception as exc:
+            raise RuntimeError(
+                f"ElevenLabs SDK could not be loaded: {exc}"
+            ) from exc
 
-    def build_script(self, decision: AgentDecision) -> str:
-        """Create a short spoken explanation from an AgentDecision."""
-
-        if decision.action == "HOLD":
-            return (
-                f"AURA recommends holding {decision.asset}. "
-                f"{decision.reason}"
-            )
-
-        if decision.action == "BUY":
-            return (
-                f"AURA recommends buying {decision.asset}. "
-                f"The proposed quantity is {decision.requested_quantity:.0f} shares. "
-                f"{decision.reason}"
-            )
-
-        if decision.action == "SELL":
-            return (
-                f"AURA recommends selling {decision.asset}. "
-                f"The proposed quantity is {decision.requested_quantity:.0f} shares. "
-                f"{decision.reason}"
-            )
-
-        if decision.action == "REDUCE":
-            return (
-                f"AURA recommends reducing the {decision.asset} position. "
-                f"The proposed reduction is {decision.requested_quantity:.0f} shares. "
-                f"{decision.reason}"
-            )
-
-        return (
-            f"AURA recommends {decision.action} for {decision.asset}. "
-            f"{decision.reason}"
+        self.client = ElevenLabs(
+            api_key=self.api_key
         )
 
     def generate_audio(
         self,
-        decision: AgentDecision,
-        output_path: str = "data/aura_decision.mp3",
-    ) -> str:
-        """Generate an MP3 explanation for an AgentDecision."""
+        agent_decision,
+        output_path="data/aura_decision.mp3",
+    ):
+        """
+        Generate an MP3 explanation of the current AURA decision.
+        """
 
-        script = self.build_script(decision)
+        reason = getattr(
+            agent_decision,
+            "reason",
+            "No additional reasoning available.",
+        )
+
+        action = getattr(
+            agent_decision,
+            "action",
+            "UNKNOWN",
+        )
+
+        confidence = getattr(
+            agent_decision,
+            "confidence",
+            0.0,
+        )
+
+        text = (
+            f"AURA recommends {action}. "
+            f"Confidence is {confidence:.0%}. "
+            f"{reason}"
+        )
+
+        output_file = Path(output_path)
+
+        # Make sure the data directory exists.
+        output_file.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
 
         audio = self.client.text_to_speech.convert(
-            text=script,
             voice_id=self.voice_id,
-            model_id=self.model_id,
+            text=text,
+            model_id="eleven_multilingual_v2",
             output_format="mp3_44100_128",
         )
 
-        output = Path(output_path)
-        output.parent.mkdir(parents=True, exist_ok=True)
-
-        with output.open("wb") as file:
+        with open(output_file, "wb") as f:
             for chunk in audio:
                 if chunk:
-                    file.write(chunk)
+                    f.write(chunk)
 
-        return str(output)
+        return str(output_file)

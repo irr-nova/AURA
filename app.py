@@ -1,15 +1,20 @@
+﻿import os
+from datetime import datetime, timezone
+
 import streamlit as st
 
 from backend.market_data import MarketDataProvider
 from backend.market_simulator import MarketSimulator
+from backend.agent import AutonomousAgent
+from backend.portfolio import PortfolioManager
+from backend.risk_engine import RiskEngine
+from backend.execution import ExecutionEngine
+from backend.adaptation import AdaptationManager
+from backend.contracts import ApprovedOrder
 
-
-# ============================================================
-# PAGE CONFIG
-# ============================================================
 
 st.set_page_config(
-    page_title="AURA — Market Intelligence",
+    page_title="AURA — Autonomous Market Intelligence",
     page_icon="◈",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -17,29 +22,55 @@ st.set_page_config(
 
 
 # ============================================================
-# MARKET DATA
+# SERVICES
 # ============================================================
 
 @st.cache_resource
 def get_market_provider():
-    simulator = MarketSimulator()
-    return MarketDataProvider(simulator)
+
+    return MarketDataProvider(
+        MarketSimulator()
+    )
+
+
+@st.cache_resource
+def get_agent():
+
+    return AutonomousAgent()
+
+
+@st.cache_resource
+def get_risk_engine():
+
+    return RiskEngine()
+
+
+@st.cache_resource
+def get_execution_engine():
+
+    return ExecutionEngine()
+
+
+@st.cache_resource
+def get_adaptation_manager():
+
+    return AdaptationManager()
 
 
 provider = get_market_provider()
+agent = get_agent()
+risk_engine = get_risk_engine()
+execution_engine = get_execution_engine()
+adaptation_manager = get_adaptation_manager()
 
 
 # ============================================================
-# CUSTOM CSS — BLACK + GOLD
+# CSS
 # ============================================================
 
-st.html(
+st.markdown(
     """
     <style>
-
-    /* ========================================================
-       GLOBAL
-       ======================================================== */
 
     .stApp {
         background: #050505;
@@ -50,262 +81,68 @@ st.html(
         background: #050505;
     }
 
-    [data-testid="stHeader"] {
-        background: #050505;
+    [data-testid="stSidebar"] {
+        background: #090909;
     }
 
     .block-container {
         max-width: 1450px;
-        padding-top: 3.5rem;
-        padding-bottom: 3rem;
+        padding-top: 2rem;
     }
 
-
-    /* ========================================================
-       SIDEBAR
-       ======================================================== */
-
-    [data-testid="stSidebar"] {
-        background: #090909;
-        border-right: 1px solid #292929;
-    }
-
-    .sidebar-logo {
+    .aura-title {
         color: #D4AF37;
-        font-size: 1.5rem;
+        font-size: 3rem;
         font-weight: 800;
-        letter-spacing: 0.16em;
-        margin-bottom: 0.25rem;
+        letter-spacing: .18em;
     }
 
-    .sidebar-subtitle {
-        color: #777777;
-        font-size: 0.72rem;
-        letter-spacing: 0.12em;
+    .subtitle {
+        color: #888;
+        letter-spacing: .08em;
         text-transform: uppercase;
         margin-bottom: 2rem;
     }
 
-    .sidebar-status {
+    .section {
+        color: #D4AF37;
+        font-size: .75rem;
+        font-weight: 800;
+        letter-spacing: .15em;
         margin-top: 2rem;
-        border-top: 1px solid #242424;
-        padding-top: 1.5rem;
+        margin-bottom: .8rem;
     }
 
-
-    /* ========================================================
-       STATUS
-       ======================================================== */
-
-    .status-label {
-        color: #6E6E6E;
-        font-size: 0.70rem;
-        font-weight: 700;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        margin-top: 1rem;
-        margin-bottom: 0.25rem;
-    }
-
-    .status-value {
-        color: #D8D5CB;
-        font-size: 0.90rem;
-    }
-
-    .online {
-        color: #D4AF37;
-    }
-
-
-    /* ========================================================
-       AURA HEADER
-       ======================================================== */
-
-    .aura-header {
-        padding: 0.8rem 0 2rem 0;
-        border-bottom: 1px solid #292929;
-        margin-bottom: 2rem;
-    }
-
-    .aura-logo {
-        color: #D4AF37;
-        font-size: 3.2rem;
-        font-weight: 800;
-        letter-spacing: 0.18em;
-        line-height: 1.15;
-        padding-top: 0.15rem;
-    }
-
-    .aura-subtitle {
-        margin-top: 0.6rem;
-        color: #858585;
-        font-size: 0.95rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-    }
-
-
-    /* ========================================================
-       SECTION LABELS
-       ======================================================== */
-
-    .section-label {
-        color: #D4AF37;
-        font-size: 0.72rem;
-        font-weight: 700;
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
-        margin-top: 1.8rem;
-        margin-bottom: 0.55rem;
-    }
-
-    .section-title {
-        color: #F1EFE7;
-        font-size: 1.45rem;
-        font-weight: 650;
-        margin-bottom: 1.25rem;
-    }
-
-
-    /* ========================================================
-       METRIC CARDS
-       ======================================================== */
-
-    .metric-card {
+    .card {
         background: #0C0C0C;
         border: 1px solid #282828;
-        border-radius: 4px;
-        padding: 1.15rem 1.25rem;
-        min-height: 125px;
-        box-sizing: border-box;
+        border-radius: 5px;
+        padding: 1.2rem;
+        min-height: 120px;
     }
 
-    .metric-card:hover {
-        border-color: #80691D;
-    }
-
-    .metric-label {
-        color: #777777;
-        font-size: 0.72rem;
+    .label {
+        color: #777;
+        font-size: .72rem;
         font-weight: 700;
-        letter-spacing: 0.12em;
+        letter-spacing: .1em;
         text-transform: uppercase;
-        margin-bottom: 0.65rem;
     }
 
-    .metric-value {
+    .value {
         color: #F2F0E8;
-        font-size: 1.75rem;
+        font-size: 1.7rem;
         font-weight: 700;
-        line-height: 1.15;
+        margin-top: .5rem;
     }
 
-    .metric-gold {
+    .gold {
         color: #D4AF37;
-    }
-
-    .metric-small {
-        color: #666666;
-        font-size: 0.75rem;
-        margin-top: 0.45rem;
-    }
-
-
-    /* ========================================================
-       MARKET REGIME
-       ======================================================== */
-
-    .regime {
-        display: inline-block;
-        padding: 0.35rem 0.75rem;
-        font-size: 0.78rem;
-        font-weight: 800;
-        letter-spacing: 0.14em;
-        border-radius: 3px;
-    }
-
-    .regime-bull {
-        border: 1px solid #80691D;
-        background: #151208;
-        color: #D4AF37;
-    }
-
-    .regime-bear {
-        border: 1px solid #633232;
-        background: #160909;
-        color: #D87B7B;
-    }
-
-    .regime-sideways {
-        border: 1px solid #555555;
-        background: #111111;
-        color: #B8B8B8;
-    }
-
-    .regime-high {
-        border: 1px solid #80551D;
-        background: #160F07;
-        color: #D99B52;
-    }
-
-
-    /* ========================================================
-       MAIN DATA STATUS
-       ======================================================== */
-
-    .status-card-main {
-        background: #0A0A0A;
-        border: 1px solid #242424;
-        border-radius: 4px;
-        padding: 1.1rem 1.25rem;
-    }
-
-
-    /* ========================================================
-       AURA INTELLIGENCE
-       ======================================================== */
-
-    .intelligence-card {
-        background: #0B0B0B;
-        border: 1px solid #3B321A;
-        border-left: 3px solid #D4AF37;
-        padding: 1.35rem 1.5rem;
-        margin-top: 1rem;
-        border-radius: 3px;
-    }
-
-    .signal-title {
-        color: #D4AF37;
-        font-size: 0.82rem;
-        font-weight: 800;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-    }
-
-    .signal-text {
-        color: #B9B7AE;
-        font-size: 0.92rem;
-        line-height: 1.65;
-        margin-top: 0.65rem;
-    }
-
-
-    /* ========================================================
-       FOOTER
-       ======================================================== */
-
-    .aura-footer {
-        margin-top: 3rem;
-        padding-top: 1.25rem;
-        border-top: 1px solid #252525;
-        color: #555555;
-        font-size: 0.68rem;
-        letter-spacing: 0.12em;
-        text-align: center;
     }
 
     </style>
-    """
+    """,
+    unsafe_allow_html=True,
 )
 
 
@@ -315,473 +152,956 @@ st.html(
 
 with st.sidebar:
 
-    st.html(
-        """
-        <div class="sidebar-logo">AURA</div>
+    st.markdown(
+        "# AURA"
+    )
 
-        <div class="sidebar-subtitle">
-            Market Intelligence
-        </div>
-        """
+    st.caption(
+        "AUTONOMOUS MARKET INTELLIGENCE"
     )
 
     selected_asset = st.selectbox(
         "Select Asset",
         ["AAPL", "TSLA", "NVDA"],
-        key="asset_selector",
+    )
+
+    initial_cash = st.number_input(
+        "Portfolio Capital",
+        min_value=1000.0,
+        max_value=10_000_000.0,
+        value=100_000.0,
+        step=1000.0,
     )
 
     if st.button(
-        "↻  Refresh Market Data",
+        "↻ Refresh Market Data",
         use_container_width=True,
-        key="refresh_button",
     ):
         st.rerun()
 
-    st.html(
-        """
-        <div class="sidebar-status">
+    if st.button(
+        "Reset Portfolio",
+        use_container_width=True,
+    ):
 
-            <div class="status-label">
-                System Status
-            </div>
+        st.session_state.pop(
+            "portfolio_manager",
+            None,
+        )
 
-            <div class="status-value">
-                <span class="online">●</span> ONLINE
-            </div>
+        st.rerun()
 
-            <div class="status-label">
-                Data Source
-            </div>
+    st.markdown("---")
 
-            <div class="status-value">
-                MARKET SIMULATOR
-            </div>
+    st.markdown(
+        "**SYSTEM STATUS**"
+    )
 
-            <div class="status-label">
-                Display Currency
-            </div>
+    st.success("● ONLINE")
 
-            <div class="status-value">
-                INR
-            </div>
+    st.caption(
+        "Pipeline: AUTONOMOUS"
+    )
 
-        </div>
-        """
+    st.caption(
+        "Data Source: MARKET SIMULATOR"
+    )
+
+    st.caption(
+        "Currency: INR"
     )
 
 
 # ============================================================
-# GET MARKET STATE
+# PORTFOLIO
 # ============================================================
 
-market_state = provider.get_market_state(selected_asset)
+if (
+    "portfolio_manager" not in st.session_state
+    or
+    st.session_state.get(
+        "portfolio_initial_cash"
+    ) != initial_cash
+):
+
+    st.session_state[
+        "portfolio_manager"
+    ] = PortfolioManager(
+        initial_cash=initial_cash
+    )
+
+    st.session_state[
+        "portfolio_initial_cash"
+    ] = initial_cash
+
+
+portfolio_manager = st.session_state[
+    "portfolio_manager"
+]
+
+
+# ============================================================
+# MARKET HELPERS
+# ============================================================
+
+def safe_get_market_state(asset):
+    """
+    Safely retrieve market state for an asset.
+    """
+
+    try:
+        state = provider.get_market_state(asset)
+
+        if state is None:
+            return None
+
+        if not hasattr(state, "price"):
+            return None
+
+        if state.price is None:
+            return None
+
+        price = float(state.price)
+
+        if price <= 0:
+            return None
+
+        return state
+
+    except Exception as exc:
+        st.error(
+            f"Market data error for {asset}: {exc}"
+        )
+        return None
+
+
+def build_portfolio_market_prices(
+    portfolio,
+    selected_asset,
+    selected_state,
+):
+
+    prices = {}
+
+    # Selected asset is always available
+    if selected_state is not None:
+
+        prices[
+            selected_asset
+        ] = float(
+            selected_state.price
+        )
+
+    positions = (
+        getattr(
+            portfolio,
+            "positions",
+            {}
+        )
+        or {}
+    )
+
+    # Only assets that are actually held
+    # need portfolio valuation.
+    for asset, quantity in positions.items():
+
+        try:
+            quantity = float(quantity)
+        except (TypeError, ValueError):
+            continue
+
+        if quantity == 0:
+            continue
+
+        asset = asset.upper()
+
+        if asset in prices:
+            continue
+
+        state = safe_get_market_state(
+            asset
+        )
+
+        if state is not None:
+
+            prices[asset] = float(
+                state.price
+            )
+
+    return prices
+
+
+def get_missing_portfolio_assets(
+    portfolio,
+    market_prices,
+):
+
+    missing = []
+
+    positions = (
+        getattr(
+            portfolio,
+            "positions",
+            {}
+        )
+        or {}
+    )
+
+    for asset, quantity in positions.items():
+
+        try:
+            quantity = float(quantity)
+        except (TypeError, ValueError):
+            continue
+
+        if quantity == 0:
+            continue
+
+        if asset.upper() not in market_prices:
+            missing.append(
+                asset.upper()
+            )
+
+    return missing
+
+
+# ============================================================
+# MARKET STATE
+# ============================================================
+
+market_state = safe_get_market_state(
+    selected_asset
+)
+
+if market_state is None:
+
+    st.error(
+        f"Market data unavailable for "
+        f"{selected_asset}."
+    )
+
+    st.stop()
+
+
+# ============================================================
+# PRICE MAP
+# ============================================================
+
+market_prices = (
+    build_portfolio_market_prices(
+        portfolio_manager,
+        selected_asset,
+        market_state,
+    )
+)
+
+
+# ============================================================
+# VALIDATION
+# ============================================================
+
+missing_assets = (
+    get_missing_portfolio_assets(
+        portfolio_manager,
+        market_prices,
+    )
+)
+
+
+if missing_assets:
+
+    st.error(
+        "Portfolio valuation unavailable: "
+        "missing market price for "
+        + ", ".join(missing_assets)
+    )
+
+    with st.expander(
+        "Portfolio valuation diagnostics"
+    ):
+
+        st.write(
+            "Positions"
+        )
+
+        st.json(
+            portfolio_manager.positions
+        )
+
+        st.write(
+            "Market prices"
+        )
+
+        st.json(
+            market_prices
+        )
+
+        st.write(
+            "Missing prices"
+        )
+
+        st.json(
+            missing_assets
+        )
+
+    st.stop()
+
+
+# ============================================================
+# PORTFOLIO STATE
+# ============================================================
+
+try:
+
+    portfolio_state = (
+        portfolio_manager.get_state(
+            market_prices
+        )
+    )
+
+except Exception as exc:
+
+    st.error(
+        f"Portfolio valuation error: {exc}"
+    )
+
+    with st.expander(
+        "Valuation diagnostics"
+    ):
+
+        st.json(
+            portfolio_manager.positions
+        )
+
+        st.json(
+            market_prices
+        )
+
+    st.stop()
+
+
+# ============================================================
+# AGENT
+# ============================================================
+
+agent_decision = agent.decide(
+    market_state,
+    portfolio_state,
+)
+
+
+# ============================================================
+# RISK
+# ============================================================
+
+risk_decision = risk_engine.evaluate(
+    agent_decision,
+    market_state,
+    portfolio_state,
+)
+
+
+# ============================================================
+# EXECUTION VARIABLES
+# ============================================================
+
+execution_result = None
+execution_error = None
+adaptation_feedback = None
+reassessment = None
+updated_portfolio = portfolio_state
+
+
+# ============================================================
+# EXECUTION
+# ============================================================
+
+if (
+    risk_decision.status
+    in {"APPROVE", "MODIFY"}
+    and
+    risk_decision.approved_quantity > 0
+    and
+    agent_decision.action
+    in {"BUY", "SELL"}
+):
+
+    approved_order = ApprovedOrder(
+        asset=market_state.asset,
+        action=agent_decision.action,
+        approved_quantity=(
+            risk_decision.approved_quantity
+        ),
+        approved_amount=(
+            risk_decision.approved_amount
+        ),
+        timestamp=datetime.now(
+            timezone.utc
+        ),
+    )
+
+    try:
+
+        execution_result = (
+            execution_engine.execute(
+                approved_order,
+                market_state.price,
+            )
+        )
+
+        # Update portfolio
+        updated_portfolio = (
+            portfolio_manager.update(
+                execution_result,
+                market_prices,
+            )
+        )
+
+        # Rebuild prices after trade
+        final_market_prices = (
+            build_portfolio_market_prices(
+                portfolio_manager,
+                selected_asset,
+                market_state,
+            )
+        )
+
+        final_market_prices[
+            market_state.asset
+        ] = float(
+            market_state.price
+        )
+
+        # Final valuation
+        updated_portfolio = (
+            portfolio_manager.get_state(
+                final_market_prices
+            )
+        )
+
+        market_prices = (
+            final_market_prices
+        )
+
+        resulting_position = (
+            updated_portfolio.positions.get(
+                market_state.asset,
+                0.0,
+            )
+        )
+
+        adaptation_feedback = (
+            adaptation_manager.create_feedback(
+                execution_result,
+                updated_portfolio,
+                risk_decision,
+                resulting_position,
+            )
+        )
+
+        reassessment = agent.decide(
+            market_state,
+            updated_portfolio,
+        )
+
+    except Exception as exc:
+
+        execution_error = str(exc)
 
 
 # ============================================================
 # HEADER
 # ============================================================
 
-st.html(
-    """
-    <div class="aura-header">
+st.markdown(
+    '<div class="aura-title">AURA</div>',
+    unsafe_allow_html=True,
+)
 
-        <div class="aura-logo">
-            AURA
-        </div>
-
-        <div class="aura-subtitle">
-            Autonomous Unified Risk & Allocation — Market Intelligence
-        </div>
-
-    </div>
-    """
+st.markdown(
+    '<div class="subtitle">'
+    'Autonomous Unified Risk & Allocation — '
+    'Market Intelligence'
+    '</div>',
+    unsafe_allow_html=True,
 )
 
 
 # ============================================================
-# 01 / MARKET STATE
+# MARKET
 # ============================================================
 
-st.html(
-    """
-    <div class="section-label">
-        01 / Market State
-    </div>
-    """
+st.markdown(
+    '<div class="section">01 / MARKET STATE</div>',
+    unsafe_allow_html=True,
 )
 
-st.html(
-    f"""
-    <div class="section-title">
-        {market_state.asset} — Live Market State
-    </div>
-    """
+st.subheader(
+    f"{market_state.asset} — Live Market State"
 )
 
+c1, c2, c3, c4 = st.columns(4)
 
-col1, col2, col3, col4 = st.columns(4)
 
+with c1:
 
-# ---------------- PRICE ----------------
-
-with col1:
-
-    st.html(
+    st.markdown(
         f"""
-        <div class="metric-card">
-
-            <div class="metric-label">
-                Price
-            </div>
-
-            <div class="metric-value metric-gold">
+        <div class="card">
+            <div class="label">Price</div>
+            <div class="value gold">
                 ₹{market_state.price:,.2f}
             </div>
-
-            <div class="metric-small">
-                INR
-            </div>
-
         </div>
-        """
+        """,
+        unsafe_allow_html=True,
     )
 
 
-# ---------------- VOLUME ----------------
+with c2:
 
-with col2:
-
-    st.html(
+    st.markdown(
         f"""
-        <div class="metric-card">
-
-            <div class="metric-label">
-                Volume
-            </div>
-
-            <div class="metric-value">
+        <div class="card">
+            <div class="label">Volume</div>
+            <div class="value">
                 {market_state.volume:,.0f}
             </div>
-
-            <div class="metric-small">
-                Units traded
-            </div>
-
         </div>
-        """
+        """,
+        unsafe_allow_html=True,
     )
 
 
-# ---------------- LIQUIDITY ----------------
+with c3:
 
-with col3:
-
-    st.html(
+    st.markdown(
         f"""
-        <div class="metric-card">
-
-            <div class="metric-label">
-                Liquidity
-            </div>
-
-            <div class="metric-value">
+        <div class="card">
+            <div class="label">Liquidity</div>
+            <div class="value">
                 {market_state.liquidity:.2%}
             </div>
-
-            <div class="metric-small">
-                Market liquidity
-            </div>
-
         </div>
-        """
+        """,
+        unsafe_allow_html=True,
     )
 
 
-# ---------------- VOLATILITY ----------------
+with c4:
 
-with col4:
-
-    st.html(
+    st.markdown(
         f"""
-        <div class="metric-card">
-
-            <div class="metric-label">
-                Volatility
-            </div>
-
-            <div class="metric-value">
+        <div class="card">
+            <div class="label">Volatility</div>
+            <div class="value">
                 {market_state.volatility:.2%}
             </div>
-
-            <div class="metric-small">
-                Current volatility
-            </div>
-
         </div>
-        """
+        """,
+        unsafe_allow_html=True,
     )
 
 
 # ============================================================
-# 02 / MARKET SIGNALS
+# SIGNALS
 # ============================================================
 
-st.html(
-    """
-    <div class="section-label">
-        02 / Market Signals
-    </div>
-    """
+st.markdown(
+    '<div class="section">02 / MARKET SIGNALS</div>',
+    unsafe_allow_html=True,
 )
 
+c1, c2, c3 = st.columns(3)
 
-# Sentiment description
+with c1:
 
-if market_state.sentiment >= 0.3:
-    sentiment_description = "Constructive"
-elif market_state.sentiment > -0.3:
-    sentiment_description = "Neutral"
-else:
-    sentiment_description = "Negative"
-
-
-# News description
-
-if market_state.news_signal >= 0.3:
-    news_description = "Positive news signal"
-elif market_state.news_signal > -0.3:
-    news_description = "Neutral news signal"
-else:
-    news_description = "Negative news signal"
-
-
-# Regime class
-
-regime = market_state.market_regime
-
-if regime == "BULL":
-    regime_class = "regime-bull"
-elif regime == "BEAR":
-    regime_class = "regime-bear"
-elif regime == "HIGH_VOLATILITY":
-    regime_class = "regime-high"
-else:
-    regime_class = "regime-sideways"
-
-
-col1, col2, col3 = st.columns(3)
-
-
-# ---------------- SENTIMENT ----------------
-
-with col1:
-
-    st.html(
-        f"""
-        <div class="metric-card">
-
-            <div class="metric-label">
-                Sentiment
-            </div>
-
-            <div class="metric-value metric-gold">
-                {market_state.sentiment:.2f}
-            </div>
-
-            <div class="metric-small">
-                {sentiment_description}
-            </div>
-
-        </div>
-        """
+    st.metric(
+        "Sentiment",
+        f"{market_state.sentiment:.2f}",
     )
 
+with c2:
 
-# ---------------- NEWS SIGNAL ----------------
-
-with col2:
-
-    st.html(
-        f"""
-        <div class="metric-card">
-
-            <div class="metric-label">
-                News Signal
-            </div>
-
-            <div class="metric-value metric-gold">
-                {market_state.news_signal:.2f}
-            </div>
-
-            <div class="metric-small">
-                {news_description}
-            </div>
-
-        </div>
-        """
+    st.metric(
+        "News Signal",
+        f"{market_state.news_signal:.2f}",
     )
 
+with c3:
 
-# ---------------- MARKET REGIME ----------------
-
-with col3:
-
-    st.html(
-        f"""
-        <div class="metric-card">
-
-            <div class="metric-label">
-                Market Regime
-            </div>
-
-            <div style="margin-top:0.7rem;">
-
-                <span class="regime {regime_class}">
-                    {regime}
-                </span>
-
-            </div>
-
-            <div class="metric-small">
-                Current simulated regime
-            </div>
-
-        </div>
-        """
+    st.metric(
+        "Market Regime",
+        market_state.market_regime,
     )
 
 
 # ============================================================
-# 03 / DATA STATUS
+# PIPELINE
 # ============================================================
 
-st.html(
-    """
-    <div class="section-label">
-        03 / Data Status
-    </div>
-    """
+st.markdown(
+    '<div class="section">03 / AUTONOMOUS PIPELINE</div>',
+    unsafe_allow_html=True,
 )
 
-st.html(
-    f"""
-    <div class="status-card-main">
+pipeline = st.columns(6)
 
-        <div class="status-label">
-            Last Updated
-        </div>
+pipeline[0].metric(
+    "MARKET",
+    "LIVE",
+    market_state.asset,
+)
 
-        <div class="status-value">
-            {market_state.timestamp.strftime("%d %b %Y  •  %H:%M:%S UTC")}
-        </div>
+pipeline[1].metric(
+    "AGENT",
+    agent_decision.action,
+    f"{agent_decision.confidence:.1%}",
+)
 
-        <div class="status-label">
-            Data Freshness
-        </div>
+pipeline[2].metric(
+    "RISK",
+    risk_decision.status,
+    f"{risk_decision.risk_score:.2f}",
+)
 
-        <div class="status-value">
-            <span class="online">●</span>
-            {market_state.data_age_seconds:.1f} seconds
-        </div>
+pipeline[3].metric(
+    "EXECUTION",
+    (
+        execution_result.status
+        if execution_result
+        else "SKIPPED"
+    ),
+)
 
-    </div>
-    """
+pipeline[4].metric(
+    "PORTFOLIO",
+    (
+        "UPDATED"
+        if execution_result
+        else "UNCHANGED"
+    ),
+    f"₹{updated_portfolio.total_value:,.0f}",
+)
+
+pipeline[5].metric(
+    "ADAPTATION",
+    (
+        "COMPLETE"
+        if adaptation_feedback
+        else "WAITING"
+    ),
 )
 
 
 # ============================================================
-# 04 / AURA INTELLIGENCE
+# AGENT DECISION
 # ============================================================
 
-st.html(
-    """
-    <div class="section-label">
-        04 / AURA Intelligence
-    </div>
-    """
+st.markdown(
+    '<div class="section">04 / AGENT DECISION</div>',
+    unsafe_allow_html=True,
 )
 
+c1, c2 = st.columns([1, 2])
 
-if market_state.market_regime == "BULL":
+with c1:
 
-    intelligence_text = (
-        "Positive market conditions detected. "
-        "Sentiment is constructive and the current simulated "
-        "market regime is bullish."
+    st.metric(
+        "Recommended Action",
+        agent_decision.action,
     )
 
-elif market_state.market_regime == "BEAR":
-
-    intelligence_text = (
-        "Defensive market conditions detected. "
-        "Sentiment is negative and the current simulated "
-        "market regime is bearish."
+    st.metric(
+        "Confidence",
+        f"{agent_decision.confidence:.1%}",
     )
 
-elif market_state.market_regime == "HIGH_VOLATILITY":
+    st.metric(
+        "Proposed Quantity",
+        f"{agent_decision.requested_quantity:.0f}",
+    )
 
-    intelligence_text = (
-        "Elevated market risk detected. "
-        "Volatility is high and market conditions require "
-        "additional caution."
+with c2:
+
+    st.info(
+        agent_decision.reason
+    )
+
+
+# ============================================================
+# RISK
+# ============================================================
+
+st.markdown(
+    '<div class="section">05 / RISK ENGINE</div>',
+    unsafe_allow_html=True,
+)
+
+c1, c2, c3 = st.columns(3)
+
+with c1:
+    st.metric(
+        "Risk Decision",
+        risk_decision.status,
+    )
+
+with c2:
+    st.metric(
+        "Risk Score",
+        f"{risk_decision.risk_score:.2f}",
+    )
+
+with c3:
+    st.metric(
+        "Approved Amount",
+        f"₹{risk_decision.approved_amount:,.2f}",
+    )
+
+if risk_decision.risk_factors:
+
+    with st.expander(
+        "Risk Factors"
+    ):
+
+        for factor in risk_decision.risk_factors:
+            st.write(
+                f"• {factor}"
+            )
+
+
+# ============================================================
+# EXECUTION
+# ============================================================
+
+st.markdown(
+    '<div class="section">06 / EXECUTION</div>',
+    unsafe_allow_html=True,
+)
+
+if execution_result:
+
+    c1, c2, c3, c4 = st.columns(4)
+
+    c1.metric(
+        "Status",
+        execution_result.status,
+    )
+
+    c2.metric(
+        "Quantity",
+        f"{execution_result.executed_quantity:.0f}",
+    )
+
+    c3.metric(
+        "Execution Price",
+        f"₹{execution_result.executed_price:,.2f}",
+    )
+
+    c4.metric(
+        "Transaction Cost",
+        f"₹{execution_result.transaction_cost:,.2f}",
+    )
+
+elif execution_error:
+
+    st.error(
+        f"Execution failed: {execution_error}"
     )
 
 else:
 
-    intelligence_text = (
-        "Market conditions are relatively balanced. "
-        "Signals indicate a sideways regime."
+    st.info(
+        "No trade was executed during this cycle."
     )
 
 
-st.html(
-    f"""
-    <div class="intelligence-card">
+# ============================================================
+# PORTFOLIO
+# ============================================================
 
-        <div class="signal-title">
-            AURA MARKET SIGNAL
-        </div>
+st.markdown(
+    '<div class="section">07 / PORTFOLIO STATE</div>',
+    unsafe_allow_html=True,
+)
 
-        <div class="signal-text">
-            {intelligence_text}
-        </div>
+c1, c2, c3, c4 = st.columns(4)
 
-    </div>
-    """
+c1.metric(
+    "Portfolio Value",
+    f"₹{updated_portfolio.total_value:,.2f}",
+)
+
+c2.metric(
+    "Available Cash",
+    f"₹{updated_portfolio.available_cash:,.2f}",
+)
+
+c3.metric(
+    "Exposure",
+    f"{updated_portfolio.current_exposure:.2%}",
+)
+
+c4.metric(
+    "P&L",
+    f"₹{updated_portfolio.pnl:,.2f}",
 )
 
 
-# ============================================================
-# RAW MARKET STATE
-# ============================================================
-
-with st.expander("⌄  View raw MarketState contract"):
+with st.expander(
+    "View current positions"
+):
 
     st.json(
-        {
-            "asset": market_state.asset,
-            "price": market_state.price,
-            "volume": market_state.volume,
-            "liquidity": market_state.liquidity,
-            "volatility": market_state.volatility,
-            "sentiment": market_state.sentiment,
-            "news_signal": market_state.news_signal,
-            "market_regime": market_state.market_regime,
-            "timestamp": market_state.timestamp.isoformat(),
-            "data_age_seconds": market_state.data_age_seconds,
-        }
+        updated_portfolio.positions
+    )
+
+    st.markdown(
+        "### Market Prices Used"
+    )
+
+    st.json(
+        market_prices
     )
 
 
 # ============================================================
-# FOOTER
+# ADAPTATION
 # ============================================================
 
-st.html(
-    """
-    <div class="aura-footer">
-        AURA • AUTONOMOUS UNIFIED RISK & ALLOCATION • MARKET INTELLIGENCE
-    </div>
-    """
+st.markdown(
+    '<div class="section">08 / ADAPTATION</div>',
+    unsafe_allow_html=True,
 )
+
+if adaptation_feedback:
+
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric(
+        "Execution Outcome",
+        adaptation_feedback.execution_outcome,
+    )
+
+    c2.metric(
+        "Resulting Position",
+        f"{adaptation_feedback.resulting_position:.0f}",
+    )
+
+    c3.metric(
+        "Resulting P&L",
+        f"₹{adaptation_feedback.pnl:,.2f}",
+    )
+
+    if reassessment:
+
+        st.info(
+            f"Next recommendation: "
+            f"{reassessment.action} "
+            f"with "
+            f"{reassessment.confidence:.1%} confidence. "
+            f"{reassessment.reason}"
+        )
+
+else:
+
+    st.info(
+        "No execution feedback was generated."
+    )
+
+
+# ============================================================
+# VOICE
+# ============================================================
+
+st.markdown(
+    '<div class="section">09 / VOICE INTELLIGENCE</div>',
+    unsafe_allow_html=True,
+)
+
+if st.button(
+    "🎙️ Generate Voice Explanation"
+):
+
+    try:
+
+        from backend.voice import VoiceExplainer
+
+        explainer = VoiceExplainer()
+
+        path = explainer.generate_audio(
+            agent_decision
+        )
+
+        st.audio(
+            path,
+            format="audio/mp3",
+        )
+
+    except Exception as exc:
+
+        st.warning(
+            f"Voice unavailable: {exc}"
+        )
+
+
+# ============================================================
+# DATA STATUS
+# ============================================================
+
+st.markdown(
+    '<div class="section">10 / DATA STATUS</div>',
+    unsafe_allow_html=True,
+)
+
+st.write(
+    f"Last Updated: "
+    f"{market_state.timestamp.strftime('%d %b %Y %H:%M:%S UTC')}"
+)
+
+st.write(
+    f"Data Freshness: "
+    f"{market_state.data_age_seconds:.1f} seconds"
+)
+
+
+# ============================================================
+# DIAGNOSTICS
+# ============================================================
+
+with st.expander(
+    "⌘ View complete diagnostics"
+):
+
+    st.write("Selected Asset")
+    st.write(selected_asset)
+
+    st.write("Market State")
+    st.json(vars(market_state))
+
+    st.write("Market Prices")
+    st.json(market_prices)
+
+    st.write("Portfolio Positions")
+    st.json(
+        portfolio_manager.positions
+    )
+
+    st.write("Agent Decision")
+    st.json(vars(agent_decision))
+
+    st.write("Risk Decision")
+    st.json(vars(risk_decision))
+
+    if execution_result:
+
+        st.write("Execution Result")
+        st.json(
+            vars(execution_result)
+        )
+
+    st.write("Portfolio State")
+    st.json(
+        vars(updated_portfolio)
+    )
+

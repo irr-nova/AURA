@@ -1,21 +1,12 @@
-# Virtual environments
 .venv/
-.venv-1/
-
-# Python cache
 __pycache__/
-*.py[cod]
-*$py.class
+*.pyc
 
-# Pytest cache
-.pytest_cache/
-
-# Environment variables
 .env
+.env.*
+!.env.example
 
-# IDE settings
-.vscode/
-
-# OS files
-.DS_Store
-Thumbs.db
+data/
+app_backup.py
+app_backup_before_ui.py
+app_working_pipeline_backup.py
