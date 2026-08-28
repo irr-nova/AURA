@@ -1,10 +1,14 @@
-# Virtual environment
+# Virtual environments
 .venv/
+.venv-1/
 
 # Python cache
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Pytest cache
+.pytest_cache/
 
 # Environment variables
 .env
