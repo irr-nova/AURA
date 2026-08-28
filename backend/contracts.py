@@ -83,3 +83,20 @@ class ExecutionResult:
     slippage: float
     timestamp: datetime
     reason: str
+
+@dataclass(frozen=True)
+class AdaptationFeedback:
+    execution_outcome: str
+    requested_quantity: float
+    executed_quantity: float
+    requested_price: float
+    executed_price: float
+    transaction_cost: float
+    slippage: float
+    resulting_portfolio_value: float
+    pnl: float
+    drawdown: float
+    current_exposure: float
+    resulting_position: float
+    risk_outcome: str
+    timestamp: datetime
