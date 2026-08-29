@@ -1,5 +1,4 @@
-﻿import os
-from datetime import datetime, timezone
+﻿from datetime import datetime, timezone
 
 import streamlit as st
 
@@ -12,6 +11,10 @@ from backend.execution import ExecutionEngine
 from backend.adaptation import AdaptationManager
 from backend.contracts import ApprovedOrder
 
+
+# ============================================================
+# PAGE CONFIG
+# ============================================================
 
 st.set_page_config(
     page_title="AURA — Autonomous Market Intelligence",
@@ -27,7 +30,6 @@ st.set_page_config(
 
 @st.cache_resource
 def get_market_provider():
-
     return MarketDataProvider(
         MarketSimulator()
     )
@@ -35,25 +37,21 @@ def get_market_provider():
 
 @st.cache_resource
 def get_agent():
-
     return AutonomousAgent()
 
 
 @st.cache_resource
 def get_risk_engine():
-
     return RiskEngine()
 
 
 @st.cache_resource
 def get_execution_engine():
-
     return ExecutionEngine()
 
 
 @st.cache_resource
 def get_adaptation_manager():
-
     return AdaptationManager()
 
 
@@ -62,6 +60,17 @@ agent = get_agent()
 risk_engine = get_risk_engine()
 execution_engine = get_execution_engine()
 adaptation_manager = get_adaptation_manager()
+
+
+# ============================================================
+# SESSION STATE
+# ============================================================
+
+if "aura_cycles" not in st.session_state:
+    st.session_state.aura_cycles = {}
+
+if "voice_path" not in st.session_state:
+    st.session_state.voice_path = None
 
 
 # ============================================================
@@ -152,9 +161,7 @@ st.markdown(
 
 with st.sidebar:
 
-    st.markdown(
-        "# AURA"
-    )
+    st.markdown("# AURA")
 
     st.caption(
         "AUTONOMOUS MARKET INTELLIGENCE"
@@ -177,6 +184,10 @@ with st.sidebar:
         "↻ Refresh Market Data",
         use_container_width=True,
     ):
+
+        st.session_state.aura_cycles = {}
+        st.session_state.voice_path = None
+
         st.rerun()
 
     if st.button(
@@ -188,6 +199,14 @@ with st.sidebar:
             "portfolio_manager",
             None,
         )
+
+        st.session_state.pop(
+            "portfolio_initial_cash",
+            None,
+        )
+
+        st.session_state.aura_cycles = {}
+        st.session_state.voice_path = None
 
         st.rerun()
 
@@ -234,6 +253,9 @@ if (
         "portfolio_initial_cash"
     ] = initial_cash
 
+    st.session_state.aura_cycles = {}
+    st.session_state.voice_path = None
+
 
 portfolio_manager = st.session_state[
     "portfolio_manager"
@@ -245,11 +267,9 @@ portfolio_manager = st.session_state[
 # ============================================================
 
 def safe_get_market_state(asset):
-    """
-    Safely retrieve market state for an asset.
-    """
 
     try:
+
         state = provider.get_market_state(asset)
 
         if state is None:
@@ -269,9 +289,11 @@ def safe_get_market_state(asset):
         return state
 
     except Exception as exc:
+
         st.error(
             f"Market data error for {asset}: {exc}"
         )
+
         return None
 
 
@@ -283,12 +305,9 @@ def build_portfolio_market_prices(
 
     prices = {}
 
-    # Selected asset is always available
     if selected_state is not None:
 
-        prices[
-            selected_asset
-        ] = float(
+        prices[selected_asset] = float(
             selected_state.price
         )
 
@@ -301,13 +320,14 @@ def build_portfolio_market_prices(
         or {}
     )
 
-    # Only assets that are actually held
-    # need portfolio valuation.
     for asset, quantity in positions.items():
 
         try:
+
             quantity = float(quantity)
+
         except (TypeError, ValueError):
+
             continue
 
         if quantity == 0:
@@ -318,9 +338,7 @@ def build_portfolio_market_prices(
         if asset in prices:
             continue
 
-        state = safe_get_market_state(
-            asset
-        )
+        state = safe_get_market_state(asset)
 
         if state is not None:
 
@@ -350,14 +368,18 @@ def get_missing_portfolio_assets(
     for asset, quantity in positions.items():
 
         try:
+
             quantity = float(quantity)
+
         except (TypeError, ValueError):
+
             continue
 
         if quantity == 0:
             continue
 
         if asset.upper() not in market_prices:
+
             missing.append(
                 asset.upper()
             )
@@ -366,247 +388,334 @@ def get_missing_portfolio_assets(
 
 
 # ============================================================
-# MARKET STATE
+# AURA CYCLE
 # ============================================================
 
-market_state = safe_get_market_state(
-    selected_asset
-)
+if selected_asset not in st.session_state.aura_cycles:
 
-if market_state is None:
+    # --------------------------------------------------------
+    # MARKET STATE
+    # --------------------------------------------------------
 
-    st.error(
-        f"Market data unavailable for "
-        f"{selected_asset}."
+    market_state = safe_get_market_state(
+        selected_asset
     )
 
-    st.stop()
+    if market_state is None:
 
-
-# ============================================================
-# PRICE MAP
-# ============================================================
-
-market_prices = (
-    build_portfolio_market_prices(
-        portfolio_manager,
-        selected_asset,
-        market_state,
-    )
-)
-
-
-# ============================================================
-# VALIDATION
-# ============================================================
-
-missing_assets = (
-    get_missing_portfolio_assets(
-        portfolio_manager,
-        market_prices,
-    )
-)
-
-
-if missing_assets:
-
-    st.error(
-        "Portfolio valuation unavailable: "
-        "missing market price for "
-        + ", ".join(missing_assets)
-    )
-
-    with st.expander(
-        "Portfolio valuation diagnostics"
-    ):
-
-        st.write(
-            "Positions"
+        st.error(
+            f"Market data unavailable for "
+            f"{selected_asset}."
         )
 
-        st.json(
-            portfolio_manager.positions
-        )
-
-        st.write(
-            "Market prices"
-        )
-
-        st.json(
-            market_prices
-        )
-
-        st.write(
-            "Missing prices"
-        )
-
-        st.json(
-            missing_assets
-        )
-
-    st.stop()
+        st.stop()
 
 
-# ============================================================
-# PORTFOLIO STATE
-# ============================================================
+    # --------------------------------------------------------
+    # PRICE MAP
+    # --------------------------------------------------------
 
-try:
-
-    portfolio_state = (
-        portfolio_manager.get_state(
-            market_prices
+    market_prices = (
+        build_portfolio_market_prices(
+            portfolio_manager,
+            selected_asset,
+            market_state,
         )
     )
 
-except Exception as exc:
 
-    st.error(
-        f"Portfolio valuation error: {exc}"
+    # --------------------------------------------------------
+    # VALIDATION
+    # --------------------------------------------------------
+
+    missing_assets = (
+        get_missing_portfolio_assets(
+            portfolio_manager,
+            market_prices,
+        )
     )
 
-    with st.expander(
-        "Valuation diagnostics"
-    ):
+    if missing_assets:
 
-        st.json(
-            portfolio_manager.positions
+        st.error(
+            "Portfolio valuation unavailable: "
+            "missing market price for "
+            + ", ".join(missing_assets)
         )
 
-        st.json(
-            market_prices
-        )
+        with st.expander(
+            "Portfolio valuation diagnostics"
+        ):
 
-    st.stop()
+            st.write("Positions")
 
+            st.json(
+                portfolio_manager.positions
+            )
 
-# ============================================================
-# AGENT
-# ============================================================
+            st.write("Market prices")
 
-agent_decision = agent.decide(
-    market_state,
-    portfolio_state,
-)
+            st.json(
+                market_prices
+            )
 
+            st.write("Missing prices")
 
-# ============================================================
-# RISK
-# ============================================================
+            st.json(
+                missing_assets
+            )
 
-risk_decision = risk_engine.evaluate(
-    agent_decision,
-    market_state,
-    portfolio_state,
-)
+        st.stop()
 
 
-# ============================================================
-# EXECUTION VARIABLES
-# ============================================================
-
-execution_result = None
-execution_error = None
-adaptation_feedback = None
-reassessment = None
-updated_portfolio = portfolio_state
-
-
-# ============================================================
-# EXECUTION
-# ============================================================
-
-if (
-    risk_decision.status
-    in {"APPROVE", "MODIFY"}
-    and
-    risk_decision.approved_quantity > 0
-    and
-    agent_decision.action
-    in {"BUY", "SELL"}
-):
-
-    approved_order = ApprovedOrder(
-        asset=market_state.asset,
-        action=agent_decision.action,
-        approved_quantity=(
-            risk_decision.approved_quantity
-        ),
-        approved_amount=(
-            risk_decision.approved_amount
-        ),
-        timestamp=datetime.now(
-            timezone.utc
-        ),
-    )
+    # --------------------------------------------------------
+    # PORTFOLIO STATE
+    # --------------------------------------------------------
 
     try:
 
-        execution_result = (
-            execution_engine.execute(
-                approved_order,
-                market_state.price,
-            )
-        )
-
-        # Update portfolio
-        updated_portfolio = (
-            portfolio_manager.update(
-                execution_result,
-                market_prices,
-            )
-        )
-
-        # Rebuild prices after trade
-        final_market_prices = (
-            build_portfolio_market_prices(
-                portfolio_manager,
-                selected_asset,
-                market_state,
-            )
-        )
-
-        final_market_prices[
-            market_state.asset
-        ] = float(
-            market_state.price
-        )
-
-        # Final valuation
-        updated_portfolio = (
+        portfolio_state = (
             portfolio_manager.get_state(
-                final_market_prices
+                market_prices
             )
-        )
-
-        market_prices = (
-            final_market_prices
-        )
-
-        resulting_position = (
-            updated_portfolio.positions.get(
-                market_state.asset,
-                0.0,
-            )
-        )
-
-        adaptation_feedback = (
-            adaptation_manager.create_feedback(
-                execution_result,
-                updated_portfolio,
-                risk_decision,
-                resulting_position,
-            )
-        )
-
-        reassessment = agent.decide(
-            market_state,
-            updated_portfolio,
         )
 
     except Exception as exc:
 
-        execution_error = str(exc)
+        st.error(
+            f"Portfolio valuation error: {exc}"
+        )
+
+        with st.expander(
+            "Valuation diagnostics"
+        ):
+
+            st.json(
+                portfolio_manager.positions
+            )
+
+            st.json(
+                market_prices
+            )
+
+        st.stop()
+
+
+    # --------------------------------------------------------
+    # AGENT
+    # --------------------------------------------------------
+
+    agent_decision = agent.decide(
+        market_state,
+        portfolio_state,
+    )
+
+
+    # --------------------------------------------------------
+    # RISK
+    # --------------------------------------------------------
+
+    risk_decision = risk_engine.evaluate(
+        agent_decision,
+        market_state,
+        portfolio_state,
+    )
+
+
+    # --------------------------------------------------------
+    # EXECUTION VARIABLES
+    # --------------------------------------------------------
+
+    execution_result = None
+    execution_error = None
+    adaptation_feedback = None
+    reassessment = None
+
+    updated_portfolio = portfolio_state
+
+
+    # --------------------------------------------------------
+    # EXECUTION
+    # --------------------------------------------------------
+
+    if (
+        risk_decision.status
+        in {"APPROVE", "MODIFY"}
+        and
+        risk_decision.approved_quantity > 0
+        and
+        agent_decision.action
+        in {"BUY", "SELL", "REDUCE"}
+    ):
+
+        approved_order = ApprovedOrder(
+            asset=market_state.asset,
+            action=agent_decision.action,
+            approved_quantity=(
+                risk_decision.approved_quantity
+            ),
+            approved_amount=(
+                risk_decision.approved_amount
+            ),
+            timestamp=datetime.now(
+                timezone.utc
+            ),
+        )
+
+        try:
+
+            execution_result = (
+                execution_engine.execute(
+                    approved_order,
+                    market_state.price,
+                )
+            )
+
+
+            # Update portfolio.
+            updated_portfolio = (
+                portfolio_manager.update(
+                    execution_result,
+                    market_prices,
+                )
+            )
+
+
+            # Rebuild market prices.
+            final_market_prices = (
+                build_portfolio_market_prices(
+                    portfolio_manager,
+                    selected_asset,
+                    market_state,
+                )
+            )
+
+
+            final_market_prices[
+                market_state.asset
+            ] = float(
+                market_state.price
+            )
+
+
+            # Final portfolio valuation.
+            updated_portfolio = (
+                portfolio_manager.get_state(
+                    final_market_prices
+                )
+            )
+
+
+            market_prices = (
+                final_market_prices
+            )
+
+
+            # Resulting position.
+            resulting_position = (
+                updated_portfolio.positions.get(
+                    market_state.asset,
+                    0.0,
+                )
+            )
+
+
+            # Adaptation.
+            adaptation_feedback = (
+                adaptation_manager.create_feedback(
+                    execution_result,
+                    updated_portfolio,
+                    risk_decision,
+                    resulting_position,
+                )
+            )
+
+
+            # Reassessment.
+            reassessment = agent.decide(
+                market_state,
+                updated_portfolio,
+            )
+
+
+        except Exception as exc:
+
+            execution_error = str(exc)
+
+
+    # --------------------------------------------------------
+    # SAVE CYCLE FOR THIS ASSET
+    # --------------------------------------------------------
+
+    st.session_state.aura_cycles[
+        selected_asset
+    ] = {
+
+        "market_state": market_state,
+
+        "agent_decision": agent_decision,
+
+        "risk_decision": risk_decision,
+
+        "execution_result": execution_result,
+
+        "execution_error": execution_error,
+
+        "updated_portfolio": updated_portfolio,
+
+        "adaptation_feedback": adaptation_feedback,
+
+        "reassessment": reassessment,
+
+        "market_prices": market_prices,
+    }
+
+
+else:
+
+    # --------------------------------------------------------
+    # REUSE EXISTING ASSET CYCLE
+    # --------------------------------------------------------
+
+    cycle = st.session_state.aura_cycles[
+        selected_asset
+    ]
+
+    market_state = cycle[
+        "market_state"
+    ]
+
+    agent_decision = cycle[
+        "agent_decision"
+    ]
+
+    risk_decision = cycle[
+        "risk_decision"
+    ]
+
+    execution_result = cycle[
+        "execution_result"
+    ]
+
+    execution_error = cycle[
+        "execution_error"
+    ]
+
+    updated_portfolio = cycle[
+        "updated_portfolio"
+    ]
+
+    adaptation_feedback = cycle[
+        "adaptation_feedback"
+    ]
+
+    reassessment = cycle[
+        "reassessment"
+    ]
+
+    market_prices = cycle[
+        "market_prices"
+    ]
 
 
 # ============================================================
@@ -714,6 +823,7 @@ st.markdown(
 
 c1, c2, c3 = st.columns(3)
 
+
 with c1:
 
     st.metric(
@@ -721,12 +831,14 @@ with c1:
         f"{market_state.sentiment:.2f}",
     )
 
+
 with c2:
 
     st.metric(
         "News Signal",
         f"{market_state.news_signal:.2f}",
     )
+
 
 with c3:
 
@@ -747,11 +859,13 @@ st.markdown(
 
 pipeline = st.columns(6)
 
+
 pipeline[0].metric(
     "MARKET",
     "LIVE",
     market_state.asset,
 )
+
 
 pipeline[1].metric(
     "AGENT",
@@ -759,11 +873,13 @@ pipeline[1].metric(
     f"{agent_decision.confidence:.1%}",
 )
 
+
 pipeline[2].metric(
     "RISK",
     risk_decision.status,
     f"{risk_decision.risk_score:.2f}",
 )
+
 
 pipeline[3].metric(
     "EXECUTION",
@@ -774,6 +890,7 @@ pipeline[3].metric(
     ),
 )
 
+
 pipeline[4].metric(
     "PORTFOLIO",
     (
@@ -783,6 +900,7 @@ pipeline[4].metric(
     ),
     f"₹{updated_portfolio.total_value:,.0f}",
 )
+
 
 pipeline[5].metric(
     "ADAPTATION",
@@ -805,6 +923,7 @@ st.markdown(
 
 c1, c2 = st.columns([1, 2])
 
+
 with c1:
 
     st.metric(
@@ -821,6 +940,7 @@ with c1:
         "Proposed Quantity",
         f"{agent_decision.requested_quantity:.0f}",
     )
+
 
 with c2:
 
@@ -840,23 +960,30 @@ st.markdown(
 
 c1, c2, c3 = st.columns(3)
 
+
 with c1:
+
     st.metric(
         "Risk Decision",
         risk_decision.status,
     )
 
+
 with c2:
+
     st.metric(
         "Risk Score",
         f"{risk_decision.risk_score:.2f}",
     )
 
+
 with c3:
+
     st.metric(
         "Approved Amount",
         f"₹{risk_decision.approved_amount:,.2f}",
     )
+
 
 if risk_decision.risk_factors:
 
@@ -865,6 +992,7 @@ if risk_decision.risk_factors:
     ):
 
         for factor in risk_decision.risk_factors:
+
             st.write(
                 f"• {factor}"
             )
@@ -879,35 +1007,42 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
 if execution_result:
 
     c1, c2, c3, c4 = st.columns(4)
+
 
     c1.metric(
         "Status",
         execution_result.status,
     )
 
+
     c2.metric(
         "Quantity",
         f"{execution_result.executed_quantity:.0f}",
     )
+
 
     c3.metric(
         "Execution Price",
         f"₹{execution_result.executed_price:,.2f}",
     )
 
+
     c4.metric(
         "Transaction Cost",
         f"₹{execution_result.transaction_cost:,.2f}",
     )
+
 
 elif execution_error:
 
     st.error(
         f"Execution failed: {execution_error}"
     )
+
 
 else:
 
@@ -927,20 +1062,24 @@ st.markdown(
 
 c1, c2, c3, c4 = st.columns(4)
 
+
 c1.metric(
     "Portfolio Value",
     f"₹{updated_portfolio.total_value:,.2f}",
 )
+
 
 c2.metric(
     "Available Cash",
     f"₹{updated_portfolio.available_cash:,.2f}",
 )
 
+
 c3.metric(
     "Exposure",
     f"{updated_portfolio.current_exposure:.2%}",
 )
+
 
 c4.metric(
     "P&L",
@@ -974,24 +1113,29 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
 if adaptation_feedback:
 
     c1, c2, c3 = st.columns(3)
+
 
     c1.metric(
         "Execution Outcome",
         adaptation_feedback.execution_outcome,
     )
 
+
     c2.metric(
         "Resulting Position",
         f"{adaptation_feedback.resulting_position:.0f}",
     )
 
+
     c3.metric(
         "Resulting P&L",
         f"₹{adaptation_feedback.pnl:,.2f}",
     )
+
 
     if reassessment:
 
@@ -1002,6 +1146,7 @@ if adaptation_feedback:
             f"{reassessment.confidence:.1%} confidence. "
             f"{reassessment.reason}"
         )
+
 
 else:
 
@@ -1019,6 +1164,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
 if st.button(
     "🎙️ Generate Voice Explanation"
 ):
@@ -1029,20 +1175,27 @@ if st.button(
 
         explainer = VoiceExplainer()
 
-        path = explainer.generate_audio(
-            agent_decision
-        )
-
-        st.audio(
-            path,
-            format="audio/mp3",
+        st.session_state.voice_path = (
+            explainer.generate_audio(
+                agent_decision
+            )
         )
 
     except Exception as exc:
 
+        st.session_state.voice_path = None
+
         st.warning(
             f"Voice unavailable: {exc}"
         )
+
+
+if st.session_state.voice_path:
+
+    st.audio(
+        st.session_state.voice_path,
+        format="audio/mp3",
+    )
 
 
 # ============================================================
@@ -1054,10 +1207,12 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
 st.write(
     f"Last Updated: "
     f"{market_state.timestamp.strftime('%d %b %Y %H:%M:%S UTC')}"
 )
+
 
 st.write(
     f"Data Freshness: "
@@ -1073,35 +1228,75 @@ with st.expander(
     "⌘ View complete diagnostics"
 ):
 
-    st.write("Selected Asset")
-    st.write(selected_asset)
+    st.write(
+        "Selected Asset"
+    )
 
-    st.write("Market State")
-    st.json(vars(market_state))
+    st.write(
+        selected_asset
+    )
 
-    st.write("Market Prices")
-    st.json(market_prices)
 
-    st.write("Portfolio Positions")
+    st.write(
+        "Market State"
+    )
+
+    st.json(
+        vars(market_state)
+    )
+
+
+    st.write(
+        "Market Prices"
+    )
+
+    st.json(
+        market_prices
+    )
+
+
+    st.write(
+        "Portfolio Positions"
+    )
+
     st.json(
         portfolio_manager.positions
     )
 
-    st.write("Agent Decision")
-    st.json(vars(agent_decision))
 
-    st.write("Risk Decision")
-    st.json(vars(risk_decision))
+    st.write(
+        "Agent Decision"
+    )
+
+    st.json(
+        vars(agent_decision)
+    )
+
+
+    st.write(
+        "Risk Decision"
+    )
+
+    st.json(
+        vars(risk_decision)
+    )
+
 
     if execution_result:
 
-        st.write("Execution Result")
+        st.write(
+            "Execution Result"
+        )
+
         st.json(
             vars(execution_result)
         )
 
-    st.write("Portfolio State")
+
+    st.write(
+        "Portfolio State"
+    )
+
     st.json(
         vars(updated_portfolio)
     )
-
